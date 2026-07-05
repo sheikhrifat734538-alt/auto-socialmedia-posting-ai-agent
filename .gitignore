@@ -4,6 +4,7 @@ __pycache__/
 
 # Environment files
 .env
+api_key_state.json
 
 # Virtual environment
 venv/
