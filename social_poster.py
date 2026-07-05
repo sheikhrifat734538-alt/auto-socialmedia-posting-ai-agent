@@ -62,7 +62,7 @@ def upload_to_youtube(video_path: str, caption: str) -> bool:
         try:
             context = p.chromium.launch_persistent_context(
                 user_data_dir=USER_DATA_DIR,
-                headless=True,
+                headless=False,
                 viewport={"width": 1280, "height": 800},
                 args=["--disable-blink-features=AutomationControlled", "--disable-web-security", "--no-sandbox"]
             )
@@ -127,7 +127,7 @@ def upload_to_tiktok(video_path: str, caption: str) -> bool:
         try:
             context = p.chromium.launch_persistent_context(
                 user_data_dir=USER_DATA_DIR,
-                headless=True,
+                headless=False,
                 viewport={"width": 1280, "height": 800},
                 args=["--disable-blink-features=AutomationControlled", "--disable-web-security", "--no-sandbox"]
             )
@@ -178,7 +178,7 @@ def upload_to_facebook(video_path: str, caption: str) -> bool:
         try:
             context = p.chromium.launch_persistent_context(
                 user_data_dir=USER_DATA_DIR,
-                headless=True,
+                headless=False,
                 viewport={"width": 1280, "height": 800},
                 args=["--disable-blink-features=AutomationControlled", "--disable-web-security", "--no-sandbox"]
             )
