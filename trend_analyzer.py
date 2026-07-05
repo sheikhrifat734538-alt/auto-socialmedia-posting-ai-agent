@@ -125,7 +125,6 @@ Return your response strictly in the following JSON format. Make sure the JSON i
     
     if not active_keys:
         print("[✗] ALL API keys are on cooldown! Using fallback concept.")
-        send_telegram_error("All API keys exhausted (on 24h cooldown). Using fallback.", "API Key Manager")
         return get_fallback_concept()
     
     # Try each active key sequentially
@@ -143,10 +142,6 @@ Return your response strictly in the following JSON format. Make sure the JSON i
     
     # All active keys failed
     print("[✗] All active API keys failed. Using fallback concept.")
-    send_telegram_error(
-        f"All {len(active_keys)} active keys failed. {cooldown_count} keys on cooldown. Using fallback.",
-        "API Key Manager"
-    )
     return get_fallback_concept()
 
 

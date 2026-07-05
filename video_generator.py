@@ -143,11 +143,16 @@ def set_clip_audio(clip, audio):
 def compile_video(concept: dict, video_filename: str) -> str:
     """
     Compiles generated voiceover audio and images into a final 9:16 MP4 video.
+    Uses unique temporary file paths based on video_filename to prevent conflicts
+    and cleans them up when finished.
     """
     download_bengali_font()
     
+    # Extract unique base slug to keep temp files isolated
+    base_slug = os.path.splitext(video_filename)[0]
+    
     # 1. Paths setup
-    audio_path = os.path.join(config.TEMP_DIR, "voiceover.mp3")
+    audio_path = os.path.join(config.TEMP_DIR, f"{base_slug}_voiceover.mp3")
     output_video_path = os.path.join(config.OUTPUT_DIR, video_filename)
     
     # 2. Generate Voiceover
@@ -173,10 +178,12 @@ def compile_video(concept: dict, video_filename: str) -> str:
         script_sentences.append("")
     
     processed_clips = []
+    temp_img_paths = []
     
     for i in range(num_images):
-        raw_img_path = os.path.join(config.TEMP_DIR, f"raw_img_{i}.jpg")
-        sub_img_path = os.path.join(config.TEMP_DIR, f"sub_img_{i}.jpg")
+        raw_img_path = os.path.join(config.TEMP_DIR, f"{base_slug}_raw_img_{i}.jpg")
+        sub_img_path = os.path.join(config.TEMP_DIR, f"{base_slug}_sub_img_{i}.jpg")
+        temp_img_paths.extend([raw_img_path, sub_img_path])
         
         # Download AI image
         success = generate_ai_image(image_prompts[i], raw_img_path)
@@ -201,12 +208,13 @@ def compile_video(concept: dict, video_filename: str) -> str:
     
     # Write video to output file
     # Using 24 fps for mobile speed and standard formatting
+    temp_audio_render = os.path.join(config.TEMP_DIR, f"{base_slug}_temp-audio.m4a")
     final_video.write_videofile(
         output_video_path, 
         fps=24, 
         codec="libx264", 
         audio_codec="aac",
-        temp_audiofile=os.path.join(config.TEMP_DIR, "temp-audio.m4a"),
+        temp_audiofile=temp_audio_render,
         remove_temp=True
     )
     
@@ -215,6 +223,15 @@ def compile_video(concept: dict, video_filename: str) -> str:
     final_video.close()
     for clip in processed_clips:
         clip.close()
+        
+    # 5. Clean up temporary files to save space and prevent locks
+    print("[+] Cleaning up temporary video generation files...")
+    for path in [audio_path, temp_audio_render] + temp_img_paths:
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except Exception as ce:
+                print(f"[!] Warning: Could not remove temporary file {path}: {ce}")
         
     print(f"[+] Final video successfully compiled and saved to: {output_video_path}")
     return output_video_path

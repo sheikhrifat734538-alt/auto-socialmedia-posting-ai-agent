@@ -27,7 +27,7 @@ def run_cycle():
     5. Notify the user via Telegram on success or error.
     """
     print("\n[+] STARTING AUTO CONTENT CREATION & POSTING CYCLE...")
-    send_telegram_message("🤖 <b>AI Content Creator:</b> Starting video generation cycle...")
+    send_telegram_message("🤖 <b>AI কন্টেন্ট ক্রিয়েটর:</b> ভিডিও জেনারেশন সাইকেল শুরু হচ্ছে...")
     
     # Step 0: Process any pending items in the queue first
     try:
@@ -35,7 +35,7 @@ def run_cycle():
         if pending_uploads:
             print(f"[+] Found {len(pending_uploads)} pending uploads in the queue. Processing them first...")
             for item in pending_uploads:
-                send_telegram_message(f"🔄 <b>AI Poster:</b> Retrying pending upload for: <i>{item['title']}</i> on {', '.join(item['platforms'])}...")
+                send_telegram_message(f"🔄 <b>AI পোস্টার:</b> পেন্ডিং ভিডিও আপলোড রি-ট্রাই করা হচ্ছে: <i>{item['title']}</i> ({', '.join(item['platforms'])}-এ)...")
                 successes = post_to_all(item["video_path"], item["caption"], item["platforms"])
                 for platform in item["platforms"]:
                     status = "success" if platform in successes else "failed"
@@ -52,11 +52,11 @@ def run_cycle():
         video_filename = f"{title_slug}_{int(time.time())}.mp4"
         
         # Step 2: Compile the video
-        send_telegram_message(f"🎬 <b>AI Video Editor:</b> Generating visuals and audio for concept: <i>{concept['title']}</i>...")
+        send_telegram_message(f"🎬 <b>AI ভিডিও এডিটর:</b> স্ক্রিপ্ট ও প্রম্পট অনুযায়ী ভয়েসওভার এবং ইমেজ তৈরি করা হচ্ছে: <i>{concept['title']}</i>...")
         video_path = compile_video(concept, video_filename)
         
         # Step 3: Post to social media
-        send_telegram_message("🚀 <b>AI Social Poster:</b> Video compilation finished. Initiating auto-upload process...")
+        send_telegram_message("🚀 <b>AI সোশ্যাল পোস্টার:</b> ভিডিও কম্পিলেশন শেষ। অটোমেটিক আপলোড প্রসেস শুরু করা হচ্ছে...")
         caption = f"{concept['script'][:150]}... #viral #trending #bangla #facts"
         
         # Add to queue database first as pending
@@ -67,7 +67,10 @@ def run_cycle():
         
         # Update status based on upload results
         for platform in ["youtube", "tiktok", "facebook"]:
-            status = "success" if platform in successful_platforms else "failed"
+            if platform in config.ACTIVE_PLATFORMS:
+                status = "success" if platform in successful_platforms else "failed"
+            else:
+                status = "skipped"
             queue_manager.update_status(video_filename, platform, status)
             
         # Step 4: Success Telegram notification
@@ -91,10 +94,11 @@ def run_cycle_with_retry(max_retries=3, delay_seconds=120):
         except Exception as e:
             print(f"[-] Attempt {attempt}/{max_retries} failed: {e}")
             if attempt < max_retries:
+                import html
                 retry_msg = (
-                    f"⚠️ <b>Bot Warning (Attempt {attempt}/{max_retries} failed)</b>\n"
-                    f"Error: <code>{e}</code>\n"
-                    f"🔄 Bot is self-healing. Retrying automatically in {delay_seconds} seconds..."
+                    f"⚠️ <b>বট সতর্কতা (প্রচেষ্টা {attempt}/{max_retries} ব্যর্থ হয়েছে)</b>\n"
+                    f"ত্রুটি: <code>{html.escape(str(e))}</code>\n"
+                    f"🔄 বটটি স্বয়ংক্রিয়ভাবে পুনরায় চেষ্টা করছে। {delay_seconds} সেকেন্ড অপেক্ষা করা হচ্ছে..."
                 )
                 send_telegram_message(retry_msg)
                 time.sleep(delay_seconds)
@@ -113,7 +117,7 @@ def start_schedule():
     schedule.every().day.at(config.AFTERNOON_POST_TIME).do(run_cycle_with_retry)
     schedule.every().day.at(config.EVENING_POST_TIME).do(run_cycle_with_retry)
     
-    send_telegram_message("🤖 <b>AI Automation Bot is ONLINE!</b>\nWatching trends and scheduled to upload 3 times daily with Auto-Retry.")
+    send_telegram_message("🤖 <b>AI অটোমেশন বট অনলাইন হয়েছে!</b>\nট্রেন্ড পর্যবেক্ষণ শুরু হয়েছে এবং প্রতিদিন ৩ বার অটোমেটিক আপলোড করার জন্য শিডিউল করা হয়েছে।")
     
     while True:
         schedule.run_pending()

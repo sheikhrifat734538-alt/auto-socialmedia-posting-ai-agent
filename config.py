@@ -14,6 +14,10 @@ MORNING_POST_TIME = os.getenv("MORNING_POST_TIME", "09:00")
 AFTERNOON_POST_TIME = os.getenv("AFTERNOON_POST_TIME", "15:00")
 EVENING_POST_TIME = os.getenv("EVENING_POST_TIME", "21:00")
 
+# Active Social Media Platforms
+ACTIVE_PLATFORMS = [p.strip().lower() for p in os.getenv("ACTIVE_PLATFORMS", "youtube,tiktok").split(",") if p.strip()]
+
+
 # Workspace Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMP_DIR = os.path.join(BASE_DIR, "temp_assets")

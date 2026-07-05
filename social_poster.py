@@ -33,18 +33,21 @@ def open_interactive_login():
             args=["--disable-blink-features=AutomationControlled", "--disable-web-security", "--no-sandbox"]
         )
         
-        # Open login pages for YouTube, TikTok, and Facebook in separate tabs
-        platforms = [
-            ("https://studio.youtube.com", "YouTube Studio"),
-            ("https://www.tiktok.com/login", "TikTok"),
-            ("https://www.facebook.com", "Facebook")
-        ]
+        # Open login pages for YouTube, TikTok, and Facebook based on active list
+        platforms = []
+        if "youtube" in config.ACTIVE_PLATFORMS:
+            platforms.append(("https://studio.youtube.com", "YouTube Studio"))
+        if "tiktok" in config.ACTIVE_PLATFORMS:
+            platforms.append(("https://www.tiktok.com/login", "TikTok"))
+        if "facebook" in config.ACTIVE_PLATFORMS:
+            platforms.append(("https://www.facebook.com", "Facebook"))
+
         pages = []
         for url, name in platforms:
             print(f"[+] Opening {name}...")
-            p = context.new_page()
-            p.goto(url)
-            pages.append(p)
+            page = context.new_page()
+            page.goto(url)
+            pages.append(page)
         # Keep browser open until the user closes all tabs manually
         while pages:
             for p in pages[:]:
@@ -83,7 +86,7 @@ def upload_to_youtube(video_path: str, caption: str) -> bool:
             upload_btn = page.locator("#text-item-0, ytcp-menu-item-upload-video, paper-item:has-text('Upload videos')").first
             upload_btn.click()
             
-            page.wait_for_selector("input[type='file']")
+            page.wait_for_selector("input[type='file']", state="attached")
             
             # Upload file
             file_input = page.locator("input[type='file']")
@@ -96,11 +99,22 @@ def upload_to_youtube(video_path: str, caption: str) -> bool:
             title_box.clear()
             title_box.fill(caption[:100])  # YouTube title limit
             
+            # Click "No, it's not made for kids" radio button (Required by YouTube wizard)
+            try:
+                kids_radio = page.locator("tp-yt-paper-radio-button[name='VIDEO_MADE_FOR_KIDS_FALSE'], tp-yt-paper-radio-button:has-text('No')").first
+                kids_radio.click()
+                time.sleep(1)
+                print("[+] YouTube: Selected 'Not made for kids'")
+            except Exception as ke:
+                print(f"[!] Warning: Could not select 'not made for kids' radio: {ke}")
+            
             # Next buttons through Wizard
-            for _ in range(3):
+            for step in range(3):
                 next_btn = page.locator("#next-button, button:has-text('Next')").first
+                next_btn.wait_for(state="visible", timeout=15000)
                 next_btn.click()
-                time.sleep(2)
+                print(f"[+] YouTube: Clicked Next (step {step+1}/3)")
+                time.sleep(3)
                 
             # Set to public
             public_radio = page.locator("tp-yt-paper-radio-button[name='PUBLIC'], tp-yt-paper-radio-button:has-text('Public')").first
@@ -133,10 +147,23 @@ def upload_to_tiktok(video_path: str, caption: str) -> bool:
             )
             page = context.new_page()
             page.goto("https://www.tiktok.com/creator-center/upload?lang=en")
-            page.wait_for_load_state("networkidle")
+            # Wait for upload interface or login prompt to load
+            page.wait_for_selector("body", timeout=30000)
+            try:
+                page.wait_for_selector("input[type='file'], iframe", timeout=20000, state="attached")
+            except Exception:
+                pass
             
             time.sleep(5) # wait for page hydration
-            if "login" in page.url or page.locator("text=Log in").count() > 0:
+            is_login_page = "login" in page.url
+            has_login_btn = False
+            try:
+                if page.locator("button:has-text('Log in')").count() > 0 or page.locator("a:has-text('Log in')").count() > 0:
+                    has_login_btn = True
+            except Exception:
+                pass
+                
+            if is_login_page or has_login_btn:
                 print("[-] TikTok: Not logged in. Run 'python social_poster.py --login' to log in.")
                 context.close()
                 return False
@@ -153,13 +180,24 @@ def upload_to_tiktok(video_path: str, caption: str) -> bool:
             
             # Caption editing
             time.sleep(5) # wait for upload process
-            caption_box = page.locator("div[class*='editor'], div[contenteditable='true'][aria-label*='caption']").first
-            caption_box.clear()
-            caption_box.fill(caption)
+            # Find the actual editable element
+            caption_box = page.locator("div[contenteditable='true'], div[class*='editor'] [contenteditable='true'], div[class*='editor']").first
+            # Use force=True to bypass floating copyright checker tooltips that intercept clicks
+            caption_box.click(force=True)
+            time.sleep(1)
+            
+            # Select all and delete (alternative to clear() which can fail on custom div editors)
+            page.keyboard.press("Control+A")
+            page.keyboard.press("Backspace")
+            time.sleep(1)
+            
+            # Type the caption using keyboard simulator
+            page.keyboard.type(caption)
+            time.sleep(2)
             
             # Click post
             post_btn = page.locator("button:has-text('Post'), button[type='submit']").first
-            post_btn.click()
+            post_btn.click(force=True)
             time.sleep(5)
             print("[+] TikTok video published successfully!")
             context.close()
@@ -223,11 +261,11 @@ def upload_to_facebook(video_path: str, caption: str) -> bool:
 
 def post_to_all(video_path: str, caption: str, target_platforms: list = None) -> list:
     """
-    Attempts to upload the video to specific target platforms (defaults to all three).
+    Attempts to upload the video to specific target platforms (defaults to configured active ones).
     Returns a list of successfully posted platforms.
     """
     if target_platforms is None:
-        target_platforms = ["youtube", "tiktok", "facebook"]
+        target_platforms = config.ACTIVE_PLATFORMS
         
     successful_platforms = []
     

@@ -29,12 +29,15 @@ def send_telegram_message(message: str) -> bool:
         print(f"[Telegram] Error sending message: {e}")
         return False
 
+import html
+
 def send_telegram_error(error_msg: str, component: str = "General") -> bool:
     """Sends a standardized error notification to Telegram."""
+    escaped_error = html.escape(str(error_msg))
     formatted_msg = (
         f"🚨 <b>AI বট ত্রুটি সতর্কবার্তা</b> 🚨\n\n"
         f"<b>কম্পোনেন্ট:</b> {component}\n"
-        f"<b>ত্রুটি বিবরণ:</b>\n<code>{error_msg}</code>\n\n"
+        f"<b>ত্রুটি বিবরণ:</b>\n<code>{escaped_error}</code>\n\n"
         f"⚠️ দয়া করে বটের অবস্থা পরীক্ষা করুন।"
     )
     return send_telegram_message(formatted_msg)

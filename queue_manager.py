@@ -29,9 +29,9 @@ def add_to_queue(video_filename: str, title: str, caption: str):
     history[video_filename] = {
         "title": title,
         "caption": caption,
-        "youtube": "pending",
-        "tiktok": "pending",
-        "facebook": "pending"
+        "youtube": "pending" if "youtube" in config.ACTIVE_PLATFORMS else "skipped",
+        "tiktok": "pending" if "tiktok" in config.ACTIVE_PLATFORMS else "skipped",
+        "facebook": "pending" if "facebook" in config.ACTIVE_PLATFORMS else "skipped"
     }
     save_history(history)
     print(f"[+] Video added to queue: {video_filename}")
@@ -45,8 +45,9 @@ def get_pending_uploads() -> list:
     for filename, data in history.items():
         platforms_to_upload = []
         for platform in ["youtube", "tiktok", "facebook"]:
-            if data.get(platform, "pending") == "pending" or data.get(platform) == "failed":
-                platforms_to_upload.append(platform)
+            if platform in config.ACTIVE_PLATFORMS:
+                if data.get(platform, "pending") == "pending" or data.get(platform) == "failed":
+                    platforms_to_upload.append(platform)
         
         if platforms_to_upload:
             video_path = os.path.join(config.OUTPUT_DIR, filename)
@@ -73,10 +74,10 @@ def update_status(video_filename: str, platform: str, status: str):
         check_and_cleanup_completed(video_filename, history[video_filename])
 
 def check_and_cleanup_completed(video_filename: str, data: dict):
-    """Deletes the local video file if it succeeded on all three platforms."""
-    if (data.get("youtube") == "success" and 
-        data.get("tiktok") == "success" and 
-        data.get("facebook") == "success"):
+    """Deletes the local video file if it succeeded or was skipped on all platforms."""
+    if (data.get("youtube") in ("success", "skipped") and 
+        data.get("tiktok") in ("success", "skipped") and 
+        data.get("facebook") in ("success", "skipped")):
         video_path = os.path.join(config.OUTPUT_DIR, video_filename)
         if os.path.exists(video_path):
             try:
