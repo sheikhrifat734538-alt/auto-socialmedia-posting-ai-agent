@@ -1,0 +1,23 @@
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+
+# Virtual environment
+venv/
+env/
+
+# Playwright profile (large)
+browser_sessions/
+
+# Generated video assets
+generated_videos/
+
+# Temporary assets for video generation
+temp_assets/
+
+# Git files
+.DS_Store
+Thumbs.db

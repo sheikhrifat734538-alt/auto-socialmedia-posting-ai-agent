@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: telegram-bot-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && playwright install --with-deps
+    startCommand: gunicorn app:app -b 0.0.0.0:${PORT}
+    autoDeploy: true
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        value: "YOUR_TELEGRAM_BOT_TOKEN"
+      - key: TELEGRAM_CHAT_ID
+        value: "YOUR_TELEGRAM_CHAT_ID"
+      - key: PLAYWRIGHT_HEADLESS
+        value: "1"
+    healthCheckPath: /health

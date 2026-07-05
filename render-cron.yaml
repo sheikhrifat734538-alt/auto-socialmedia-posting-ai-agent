@@ -1,0 +1,4 @@
+cronJobs:
+  - name: post_all_every_4h
+    schedule: "0 */4 * * *"
+    command: "python -m main post_all"
