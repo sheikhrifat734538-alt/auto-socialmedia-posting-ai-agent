@@ -5,8 +5,15 @@ import shutil
 
 PROJECT_ROOT = Path(__file__).parent
 
-EXCLUDE_DIRS = {"__pycache__", ".git", "env", "node_modules", ".idea", "venv"}
-EXCLUDE_FILES = {"C:\\Users\\pokes\\.gemini\\antigravity\\brain\\8dfcfb6a-ccf7-4750-b2d3-3670efd67ec5\\implementation_plan.md"}
+EXCLUDE_DIRS = {
+    "__pycache__", ".git", "env", "node_modules", ".idea", "venv", 
+    "browser_sessions", "generated_videos", "temp_assets"
+}
+EXCLUDE_FILES = {
+    "upload_history.json",
+    "project_archive.zip"
+}
+
 
 def create_repo_zip() -> str:
     """Create a ZIP archive of the repository (excluding heavy/temporary files).
@@ -24,8 +31,8 @@ def create_repo_zip() -> str:
             dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
             for filename in filenames:
                 file_path = folder / filename
-                # Skip excluded files
-                if str(file_path) in EXCLUDE_FILES:
+                # Skip excluded files by their name
+                if file_path.name in EXCLUDE_FILES:
                     continue
                 # Write file with relative path
                 rel_path = file_path.relative_to(PROJECT_ROOT)

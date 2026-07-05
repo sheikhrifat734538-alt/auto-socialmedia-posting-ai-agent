@@ -1,9 +1,18 @@
 import os
 import json
 import re
+import sys
 import google.generativeai as genai
 import config
 from telegram_notifier import send_telegram_error
+
+# Ensure terminal outputs support Bengali Unicode characters without crashing
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+except AttributeError:
+    pass
+
 
 # Configure Gemini API
 if config.GEMINI_API_KEY:
@@ -21,8 +30,8 @@ def generate_video_concept() -> dict:
         return get_fallback_concept()
 
     prompt = """
-You are a viral social media growth expert. Generate a highly engaging vertical short video concept (YouTube Shorts, TikTok, Facebook Reels) that is likely to go viral. 
-Topics can include: amazing facts, mysterious stories, history secrets, life hacks, or psychological facts.
+You are a viral social media growth expert. First, perform a search to find the latest real-time trending news, viral facts, or popular space/history/psychology topics that are currently generating high interest.
+Based on the trending search findings, generate a highly engaging vertical short video concept (YouTube Shorts, TikTok, Facebook Reels) that is likely to go viral.
 
 Requirements:
 1. The script MUST be written in Bengali (বাংলা).
@@ -43,7 +52,10 @@ Return your response strictly in the following JSON format. Make sure the JSON i
 }
 """
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel(
+            model_name="gemini-flash-latest",
+            tools=['google_search_retrieval']
+        )
         response = model.generate_content(prompt)
         
         # Parse JSON from response text

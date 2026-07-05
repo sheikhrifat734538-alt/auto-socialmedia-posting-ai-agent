@@ -7,18 +7,44 @@ from trend_analyzer import generate_video_concept
 from video_generator import compile_video
 from social_poster import post_to_all
 from telegram_notifier import send_telegram_message, send_telegram_success, send_telegram_error
+import queue_manager
+
+# Ensure terminal outputs support Bengali Unicode characters without crashing
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+except AttributeError:
+    pass
+
 
 def run_cycle():
     """
     Executes a single workflow cycle:
-    1. Brainstorm viral topic & script in Bengali (Gemini API)
-    2. Download background assets and compile vertical video (edge-tts + MoviePy)
-    3. Upload finished video to YouTube, TikTok, and Facebook (Playwright)
-    4. Notify the user via Telegram on success or error.
+    1. Check queue and upload any pending/failed videos.
+    2. Brainstorm viral topic & script in Bengali (Gemini API with Live Search)
+    3. Download background assets and compile vertical video (edge-tts + MoviePy)
+    4. Save to queue and attempt upload.
+    5. Notify the user via Telegram on success or error.
     """
     print("\n[+] STARTING AUTO CONTENT CREATION & POSTING CYCLE...")
     send_telegram_message("🤖 <b>AI Content Creator:</b> Starting video generation cycle...")
     
+    # Step 0: Process any pending items in the queue first
+    try:
+        pending_uploads = queue_manager.get_pending_uploads()
+        if pending_uploads:
+            print(f"[+] Found {len(pending_uploads)} pending uploads in the queue. Processing them first...")
+            for item in pending_uploads:
+                send_telegram_message(f"🔄 <b>AI Poster:</b> Retrying pending upload for: <i>{item['title']}</i> on {', '.join(item['platforms'])}...")
+                successes = post_to_all(item["video_path"], item["caption"], item["platforms"])
+                for platform in item["platforms"]:
+                    status = "success" if platform in successes else "failed"
+                    queue_manager.update_status(item["filename"], platform, status)
+                if successes:
+                    send_telegram_success(f"Retried: {item['title']}", [p.capitalize() for p in successes])
+    except Exception as qe:
+        print(f"[-] Error processing queue: {qe}")
+        
     try:
         # Step 1: Analyze trend and write Bengali script
         concept = generate_video_concept()
@@ -33,10 +59,19 @@ def run_cycle():
         send_telegram_message("🚀 <b>AI Social Poster:</b> Video compilation finished. Initiating auto-upload process...")
         caption = f"{concept['script'][:150]}... #viral #trending #bangla #facts"
         
+        # Add to queue database first as pending
+        queue_manager.add_to_queue(video_filename, concept["title"], caption)
+        
+        # Attempt upload to all three platforms
         successful_platforms = post_to_all(video_path, caption)
         
+        # Update status based on upload results
+        for platform in ["youtube", "tiktok", "facebook"]:
+            status = "success" if platform in successful_platforms else "failed"
+            queue_manager.update_status(video_filename, platform, status)
+            
         # Step 4: Success Telegram notification
-        send_telegram_success(concept["title"], successful_platforms)
+        send_telegram_success(concept["title"], [p.capitalize() for p in successful_platforms])
         print("[+] Cycle completed successfully!")
         
     except Exception as e:

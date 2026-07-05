@@ -62,7 +62,9 @@ def upload_to_youtube(video_path: str, caption: str) -> bool:
         try:
             context = p.chromium.launch_persistent_context(
                 user_data_dir=USER_DATA_DIR,
-                headless=True
+                headless=True,
+                viewport={"width": 1280, "height": 800},
+                args=["--disable-blink-features=AutomationControlled", "--disable-web-security", "--no-sandbox"]
             )
             page = context.new_page()
             page.goto("https://studio.youtube.com")
@@ -71,11 +73,16 @@ def upload_to_youtube(video_path: str, caption: str) -> bool:
             # Check if we are logged in (look for upload button or avatar)
             if "login" in page.url or page.locator("a[href*='accounts.google']").count() > 0:
                 print("[-] YouTube: Not logged in. Run 'python social_poster.py --login' to log in.")
+                context.close()
                 return False
                 
-            # Click the Create/Upload button
-            page.locator("#create-icon").click()
-            page.locator("#text-item-0").click()  # Upload video
+            # Click the Create/Upload button with fallbacks
+            create_btn = page.locator("#create-icon, button[aria-label*='Create'], button:has-text('Create')").first
+            create_btn.click()
+            
+            upload_btn = page.locator("#text-item-0, ytcp-menu-item-upload-video, paper-item:has-text('Upload videos')").first
+            upload_btn.click()
+            
             page.wait_for_selector("input[type='file']")
             
             # Upload file
@@ -83,22 +90,25 @@ def upload_to_youtube(video_path: str, caption: str) -> bool:
             file_input.set_input_files(video_path)
             print("[+] YouTube: Video file uploaded. Filling details...")
             
-            # Fill title and description (YouTube automatically detects 9:16 under 60s as Shorts)
-            page.wait_for_selector("#textbox[aria-label*='Title']")
-            title_box = page.locator("#textbox[aria-label*='Title']").first
+            # Fill title and description with fallbacks
+            page.wait_for_selector("#textbox[aria-label*='Title'], div[id='textbox'][contenteditable='true']")
+            title_box = page.locator("#textbox[aria-label*='Title'], div[id='textbox'][contenteditable='true']").first
             title_box.clear()
             title_box.fill(caption[:100])  # YouTube title limit
             
             # Next buttons through Wizard
             for _ in range(3):
-                page.locator("#next-button").click()
+                next_btn = page.locator("#next-button, button:has-text('Next')").first
+                next_btn.click()
                 time.sleep(2)
                 
             # Set to public
-            page.locator("tp-yt-paper-radio-button[name='PUBLIC']").click()
+            public_radio = page.locator("tp-yt-paper-radio-button[name='PUBLIC'], tp-yt-paper-radio-button:has-text('Public')").first
+            public_radio.click()
             
             # Publish
-            page.locator("#done-button").click()
+            done_btn = page.locator("#done-button, button:has-text('Publish'), button:has-text('Save')").first
+            done_btn.click()
             time.sleep(5)
             print("[+] YouTube Shorts published successfully!")
             context.close()
@@ -117,16 +127,18 @@ def upload_to_tiktok(video_path: str, caption: str) -> bool:
         try:
             context = p.chromium.launch_persistent_context(
                 user_data_dir=USER_DATA_DIR,
-                headless=True
+                headless=True,
+                viewport={"width": 1280, "height": 800},
+                args=["--disable-blink-features=AutomationControlled", "--disable-web-security", "--no-sandbox"]
             )
             page = context.new_page()
             page.goto("https://www.tiktok.com/creator-center/upload?lang=en")
             page.wait_for_load_state("networkidle")
             
-            # Check for iframe or file uploader elements
             time.sleep(5) # wait for page hydration
             if "login" in page.url or page.locator("text=Log in").count() > 0:
                 print("[-] TikTok: Not logged in. Run 'python social_poster.py --login' to log in.")
+                context.close()
                 return False
                 
             # Wait for iframe or upload input
@@ -141,12 +153,13 @@ def upload_to_tiktok(video_path: str, caption: str) -> bool:
             
             # Caption editing
             time.sleep(5) # wait for upload process
-            caption_box = page.locator("div[class*='editor']").first
+            caption_box = page.locator("div[class*='editor'], div[contenteditable='true'][aria-label*='caption']").first
             caption_box.clear()
             caption_box.fill(caption)
             
             # Click post
-            page.locator("button:has-text('Post')").click()
+            post_btn = page.locator("button:has-text('Post'), button[type='submit']").first
+            post_btn.click()
             time.sleep(5)
             print("[+] TikTok video published successfully!")
             context.close()
@@ -161,20 +174,21 @@ def upload_to_tiktok(video_path: str, caption: str) -> bool:
 def upload_to_facebook(video_path: str, caption: str) -> bool:
     """Automates uploading a Reel to Facebook Page/Profile."""
     print("[+] Starting Facebook Reels upload automation...")
-    # Facebook's DOM is highly complex. We can upload via Meta Business Suite Reels Creator
     with sync_playwright() as p:
         try:
             context = p.chromium.launch_persistent_context(
                 user_data_dir=USER_DATA_DIR,
-                headless=True
+                headless=True,
+                viewport={"width": 1280, "height": 800},
+                args=["--disable-blink-features=AutomationControlled", "--disable-web-security", "--no-sandbox"]
             )
             page = context.new_page()
-            # Navigate to Meta Business Suite Reel Composer
             page.goto("https://business.facebook.com/latest/reels_composer")
             page.wait_for_load_state("networkidle")
             
             if "login" in page.url:
                 print("[-] Facebook: Not logged in. Run 'python social_poster.py --login' to log in.")
+                context.close()
                 return False
                 
             # Upload video file
@@ -184,17 +198,18 @@ def upload_to_facebook(video_path: str, caption: str) -> bool:
             print("[+] Facebook: Video uploading...")
             
             # Caption
-            caption_box = page.locator("div[aria-label*='Describe your reel']").first
+            caption_box = page.locator("div[aria-label*='Describe your reel'], div[contenteditable='true']").first
             caption_box.fill(caption)
             
             # Next buttons through Meta Composer wizard
-            page.locator("button:has-text('Next')").click()
-            time.sleep(2)
-            page.locator("button:has-text('Next')").click()
-            time.sleep(2)
+            for _ in range(2):
+                next_btn = page.locator("button:has-text('Next'), button[aria-label*='Next']").first
+                next_btn.click()
+                time.sleep(2)
             
             # Click Publish
-            page.locator("button:has-text('Publish')").click()
+            publish_btn = page.locator("button:has-text('Publish'), button:has-text('Share'), button[aria-label*='Publish']").first
+            publish_btn.click()
             time.sleep(10)
             print("[+] Facebook Reel published successfully!")
             context.close()
@@ -206,24 +221,30 @@ def upload_to_facebook(video_path: str, caption: str) -> bool:
             send_telegram_error(error_msg, "Facebook Poster")
             return False
 
-def post_to_all(video_path: str, caption: str) -> list:
+def post_to_all(video_path: str, caption: str, target_platforms: list = None) -> list:
     """
-    Attempts to upload the video to YouTube, TikTok, and Facebook.
+    Attempts to upload the video to specific target platforms (defaults to all three).
     Returns a list of successfully posted platforms.
     """
+    if target_platforms is None:
+        target_platforms = ["youtube", "tiktok", "facebook"]
+        
     successful_platforms = []
     
     # 1. YouTube Shorts
-    if upload_to_youtube(video_path, caption):
-        successful_platforms.append("YouTube Shorts")
+    if "youtube" in target_platforms:
+        if upload_to_youtube(video_path, caption):
+            successful_platforms.append("youtube")
         
     # 2. TikTok
-    if upload_to_tiktok(video_path, caption):
-        successful_platforms.append("TikTok")
+    if "tiktok" in target_platforms:
+        if upload_to_tiktok(video_path, caption):
+            successful_platforms.append("tiktok")
         
     # 3. Facebook Reels
-    if upload_to_facebook(video_path, caption):
-        successful_platforms.append("Facebook Reels")
+    if "facebook" in target_platforms:
+        if upload_to_facebook(video_path, caption):
+            successful_platforms.append("facebook")
         
     return successful_platforms
 

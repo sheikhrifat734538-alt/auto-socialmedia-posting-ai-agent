@@ -1,6 +1,15 @@
 from flask import Flask, jsonify, send_file
 import os
+import sys
 import threading
+
+# Ensure terminal outputs support Bengali Unicode characters without crashing
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+except AttributeError:
+    pass
+
 
 # Import existing functions
 from main import run_cycle_with_retry
@@ -27,6 +36,11 @@ def post_all_route():
 def download_route():
     zip_path = create_repo_zip()
     return send_file(zip_path, as_attachment=True, download_name='project.zip')
+
+@app.route('/health', methods=['GET'])
+def health_route():
+    return jsonify({"status": "ok"})
+
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
